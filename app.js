@@ -839,7 +839,9 @@ function renderDashboard() {
     section.className = "category-section";
     section.setAttribute("data-cat-id", category.id);
     
-    if (state.editMode) {
+    const isDynamicDocker = category.id.startsWith('cat-docker-');
+
+    if (state.editMode && !isDynamicDocker) {
       let sectionEnterCounter = 0;
       
       section.addEventListener("dragstart", (e) => {
@@ -907,7 +909,7 @@ function renderDashboard() {
     const header = document.createElement("div");
     header.className = "category-header";
 
-    if (state.editMode) {
+    if (state.editMode && !isDynamicDocker) {
       const dragHandle = document.createElement("div");
       dragHandle.className = "cat-drag-handle";
       dragHandle.innerHTML = '<i class="fas fa-grip-vertical"></i>';
@@ -957,41 +959,48 @@ function renderDashboard() {
     const catActions = document.createElement("div");
     catActions.className = "category-actions";
     
-    // Move Up Category
-    if (catIndex > 0) {
-      const btnUp = document.createElement("button");
-      btnUp.className = "icon-btn";
-      btnUp.title = "Move Up";
-      btnUp.innerHTML = '<i class="fas fa-arrow-up"></i>';
-      btnUp.addEventListener("click", () => moveCategory(catIndex, -1));
-      catActions.appendChild(btnUp);
+    if (isDynamicDocker) {
+      const badge = document.createElement("span");
+      badge.className = "docker-category-badge";
+      badge.innerHTML = '<i class="fab fa-docker"></i> Docker Managed';
+      catActions.appendChild(badge);
+    } else {
+      // Move Up Category
+      if (catIndex > 0) {
+        const btnUp = document.createElement("button");
+        btnUp.className = "icon-btn";
+        btnUp.title = "Move Up";
+        btnUp.innerHTML = '<i class="fas fa-arrow-up"></i>';
+        btnUp.addEventListener("click", () => moveCategory(catIndex, -1));
+        catActions.appendChild(btnUp);
+      }
+      
+      // Move Down Category
+      if (catIndex < state.categories.length - 1) {
+        const btnDown = document.createElement("button");
+        btnDown.className = "icon-btn";
+        btnDown.title = "Move Down";
+        btnDown.innerHTML = '<i class="fas fa-arrow-down"></i>';
+        btnDown.addEventListener("click", () => moveCategory(catIndex, 1));
+        catActions.appendChild(btnDown);
+      }
+      
+      // Edit Category
+      const btnEdit = document.createElement("button");
+      btnEdit.className = "icon-btn";
+      btnEdit.title = "Edit Category";
+      btnEdit.innerHTML = '<i class="fas fa-pencil-alt"></i>';
+      btnEdit.addEventListener("click", () => openCategoryModal(category.id));
+      catActions.appendChild(btnEdit);
+      
+      // Delete Category
+      const btnDel = document.createElement("button");
+      btnDel.className = "icon-btn btn-danger-hover";
+      btnDel.title = "Delete Category";
+      btnDel.innerHTML = '<i class="fas fa-trash-alt"></i>';
+      btnDel.addEventListener("click", () => deleteCategory(category.id));
+      catActions.appendChild(btnDel);
     }
-    
-    // Move Down Category
-    if (catIndex < state.categories.length - 1) {
-      const btnDown = document.createElement("button");
-      btnDown.className = "icon-btn";
-      btnDown.title = "Move Down";
-      btnDown.innerHTML = '<i class="fas fa-arrow-down"></i>';
-      btnDown.addEventListener("click", () => moveCategory(catIndex, 1));
-      catActions.appendChild(btnDown);
-    }
-    
-    // Edit Category
-    const btnEdit = document.createElement("button");
-    btnEdit.className = "icon-btn";
-    btnEdit.title = "Edit Category";
-    btnEdit.innerHTML = '<i class="fas fa-pencil-alt"></i>';
-    btnEdit.addEventListener("click", () => openCategoryModal(category.id));
-    catActions.appendChild(btnEdit);
-    
-    // Delete Category
-    const btnDel = document.createElement("button");
-    btnDel.className = "icon-btn btn-danger-hover";
-    btnDel.title = "Delete Category";
-    btnDel.innerHTML = '<i class="fas fa-trash-alt"></i>';
-    btnDel.addEventListener("click", () => deleteCategory(category.id));
-    catActions.appendChild(btnDel);
     
     header.appendChild(catActions);
     section.appendChild(header);
@@ -1223,7 +1232,7 @@ function renderDashboard() {
         card.rel = "noopener noreferrer";
         card.style.setProperty("--card-accent", item.color || "var(--primary-color)");
         
-        if (state.editMode) {
+        if (state.editMode && !item.isDiscovered) {
           card.setAttribute("draggable", "true");
           let cardEnterCounter = 0;
           
@@ -1330,67 +1339,85 @@ function renderDashboard() {
         }
         
         // Edit Overlay (visible in Edit Mode)
-        const overlay = document.createElement("div");
-        overlay.className = "card-edit-overlay";
-        
-        // Move Left Item
-        if (itemIndex > 0) {
-          const moveLeft = document.createElement("button");
-          moveLeft.className = "icon-btn";
-          moveLeft.title = "Move Left";
-          moveLeft.innerHTML = '<i class="fas fa-arrow-left"></i>';
-          moveLeft.addEventListener("click", (e) => {
+        if (item.isDiscovered) {
+          const overlay = document.createElement("div");
+          overlay.className = "card-edit-overlay docker-discovered-overlay";
+          
+          const dockerIcon = document.createElement("i");
+          dockerIcon.className = "fab fa-docker";
+          dockerIcon.style.fontSize = "1.5rem";
+          dockerIcon.style.color = "#2496ed";
+          
+          const text = document.createElement("span");
+          text.className = "docker-badge-text";
+          text.textContent = "Managed by Docker";
+          
+          overlay.appendChild(dockerIcon);
+          overlay.appendChild(text);
+          card.appendChild(overlay);
+        } else {
+          const overlay = document.createElement("div");
+          overlay.className = "card-edit-overlay";
+          
+          // Move Left Item
+          if (itemIndex > 0) {
+            const moveLeft = document.createElement("button");
+            moveLeft.className = "icon-btn";
+            moveLeft.title = "Move Left";
+            moveLeft.innerHTML = '<i class="fas fa-arrow-left"></i>';
+            moveLeft.addEventListener("click", (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              moveItem(catIndex, itemIndex, -1);
+            });
+            overlay.appendChild(moveLeft);
+          }
+          
+          // Edit Button
+          const editBtn = document.createElement("button");
+          editBtn.className = "icon-btn";
+          editBtn.title = "Edit Link";
+          editBtn.innerHTML = '<i class="fas fa-pencil-alt"></i>';
+          editBtn.addEventListener("click", (e) => {
             e.preventDefault();
             e.stopPropagation();
-            moveItem(catIndex, itemIndex, -1);
+            openItemModal(category.id, item.id);
           });
-          overlay.appendChild(moveLeft);
-        }
-        
-        // Edit Button
-        const editBtn = document.createElement("button");
-        editBtn.className = "icon-btn";
-        editBtn.title = "Edit Link";
-        editBtn.innerHTML = '<i class="fas fa-pencil-alt"></i>';
-        editBtn.addEventListener("click", (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          openItemModal(category.id, item.id);
-        });
-        overlay.appendChild(editBtn);
-        
-        // Delete Button
-        const delBtn = document.createElement("button");
-        delBtn.className = "icon-btn btn-danger-hover";
-        delBtn.title = "Delete Link";
-        delBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
-        delBtn.addEventListener("click", (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          deleteItem(category.id, item.id);
-        });
-        overlay.appendChild(delBtn);
-        
-        // Move Right Item
-        if (itemIndex < category.items.length - 1) {
-          const moveRight = document.createElement("button");
-          moveRight.className = "icon-btn";
-          moveRight.title = "Move Right";
-          moveRight.innerHTML = '<i class="fas fa-arrow-right"></i>';
-          moveRight.addEventListener("click", (e) => {
+          overlay.appendChild(editBtn);
+          
+          // Delete Button
+          const delBtn = document.createElement("button");
+          delBtn.className = "icon-btn btn-danger-hover";
+          delBtn.title = "Delete Link";
+          delBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
+          delBtn.addEventListener("click", (e) => {
             e.preventDefault();
             e.stopPropagation();
-            moveItem(catIndex, itemIndex, 1);
+            deleteItem(category.id, item.id);
           });
-          overlay.appendChild(moveRight);
+          overlay.appendChild(delBtn);
+          
+          // Move Right Item
+          if (itemIndex < category.items.length - 1) {
+            const moveRight = document.createElement("button");
+            moveRight.className = "icon-btn";
+            moveRight.title = "Move Right";
+            moveRight.innerHTML = '<i class="fas fa-arrow-right"></i>';
+            moveRight.addEventListener("click", (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              moveItem(catIndex, itemIndex, 1);
+            });
+            overlay.appendChild(moveRight);
+          }
+          
+          card.appendChild(overlay);
         }
-        
-        card.appendChild(overlay);
         linksGrid.appendChild(card);
       });
       
       // Add Item Placeholder (Visible in Edit Mode)
-      if (state.editMode) {
+      if (state.editMode && !isDynamicDocker) {
         const addPlaceholder = document.createElement("button");
         addPlaceholder.className = "add-card-placeholder";
         addPlaceholder.innerHTML = '<i class="fas fa-plus"></i> <span>Add Link</span>';

@@ -1696,4 +1696,38 @@ html[data-theme="light"] .proxmox-progress-bar {
   }
 }
 
+/* --- Docker Socket Discovery styles --- */
+.docker-discovered-overlay {
+  flex-direction: column;
+  background: rgba(11, 15, 25, 0.95);
+  cursor: not-allowed;
+}
+
+html[data-theme="light"] .docker-discovered-overlay {
+  background: rgba(241, 245, 249, 0.97);
+}
+
+.docker-badge-text {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #a5b4fc;
+}
+
+html[data-theme="light"] .docker-badge-text {
+  color: #4f46e5;
+}
+
+.docker-category-badge {
+  font-size: 0.75rem;
+  color: #2496ed;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  background: rgba(36, 150, 237, 0.1);
+  border: 1px solid rgba(36, 150, 237, 0.2);
+}
+
 

@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import os from 'os';
+import http from 'http';
 import { fileURLToPath } from 'url';
 
 // Homelab environments commonly use self-signed certificates for Proxmox.
@@ -100,6 +101,147 @@ async function runLinkChecks() {
 setInterval(runLinkChecks, 60000);
 // Trigger initial check shortly after boot
 setTimeout(runLinkChecks, 5000);
+
+// --- Docker Socket Auto-Discovery Setup ---
+let discoveredDockerItems = [];
+let dockerDiscoveryWarningLogged = false;
+
+function getPrimaryHostIp() {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      if (!iface.internal && iface.family === 'IPv4') {
+        return iface.address;
+      }
+    }
+  }
+  return 'localhost';
+}
+
+function queryDockerSocket(path) {
+  return new Promise((resolve, reject) => {
+    const options = {
+      socketPath: process.env.MDASH_DOCKER_SOCKET || '/var/run/docker.sock',
+      path: path,
+      method: 'GET'
+    };
+
+    const req = http.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => data += chunk);
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          try {
+            resolve(JSON.parse(data));
+          } catch (e) {
+            reject(new Error('Failed to parse Docker response JSON'));
+          }
+        } else {
+          reject(new Error(`Docker API returned status ${res.statusCode}: ${data}`));
+        }
+      });
+    });
+
+    req.on('error', (err) => reject(err));
+    req.end();
+  });
+}
+
+async function runDockerDiscovery() {
+  if (process.env.MDASH_DOCKER_DISCOVERY !== 'true') {
+    discoveredDockerItems = [];
+    return;
+  }
+
+  try {
+    const containers = await queryDockerSocket('/containers/json');
+    const items = [];
+    const hostIp = getPrimaryHostIp();
+
+    containers.forEach(container => {
+      const labels = container.Labels || {};
+      if (labels['mdash.enable'] !== 'true') return;
+
+      const id = container.Id;
+      const shortId = id.substring(0, 12);
+      
+      const name = labels['mdash.name'] || (container.Names && container.Names[0] ? container.Names[0].replace(/^\//, '') : `container-${shortId}`);
+      const category = labels['mdash.category'] || 'Docker Discovered';
+      const desc = labels['mdash.desc'] || `Docker image: ${container.Image}`;
+      const icon = labels['mdash.icon'] || 'fab fa-docker';
+      const color = labels['mdash.color'] || '#2496ed';
+
+      let url = labels['mdash.url'];
+      if (!url) {
+        const ports = container.Ports || [];
+        const publicPort = ports.find(p => p.PublicPort)?.PublicPort;
+        if (publicPort) {
+          url = `http://${hostIp}:${publicPort}`;
+        } else {
+          url = '#';
+        }
+      }
+
+      items.push({
+        id: `docker-${shortId}`,
+        name: name,
+        url: url,
+        desc: desc,
+        icon: icon,
+        color: color,
+        isDiscovered: true,
+        targetCategory: category
+      });
+    });
+
+    discoveredDockerItems = items;
+    dockerDiscoveryWarningLogged = false;
+  } catch (err) {
+    if (!dockerDiscoveryWarningLogged) {
+      console.warn("Docker socket discovery failed (will retry silently):", err.message);
+      dockerDiscoveryWarningLogged = true;
+    }
+    discoveredDockerItems = [];
+  }
+}
+
+function mergeDiscoveredDockerItems(config) {
+  if (process.env.MDASH_DOCKER_DISCOVERY !== 'true' || discoveredDockerItems.length === 0) {
+    return;
+  }
+
+  discoveredDockerItems.forEach(item => {
+    let category = config.categories.find(c => c.name.trim().toLowerCase() === item.targetCategory.trim().toLowerCase());
+    
+    if (!category) {
+      category = {
+        id: `cat-docker-${item.targetCategory.trim().toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+        name: item.targetCategory,
+        icon: 'fab fa-docker',
+        items: []
+      };
+      config.categories.push(category);
+    }
+
+    if (!category.items) category.items = [];
+    if (!category.items.some(i => i.id === item.id)) {
+      category.items.push({
+        id: item.id,
+        name: item.name,
+        url: item.url,
+        desc: item.desc,
+        icon: item.icon,
+        color: item.color,
+        isDiscovered: true
+      });
+    }
+  });
+}
+
+// Check every 30 seconds
+setInterval(runDockerDiscovery, 30000);
+// Trigger initial discovery shortly after boot
+setTimeout(runDockerDiscovery, 3000);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -383,9 +525,12 @@ app.get('/api/config', (req, res) => {
       }
       return cat;
     });
+    mergeDiscoveredDockerItems(sanitizedConfig);
     return res.json(sanitizedConfig);
   }
-  res.json(config);
+  const fullConfig = JSON.parse(JSON.stringify(config));
+  mergeDiscoveredDockerItems(fullConfig);
+  res.json(fullConfig);
 });
 
 // POST /api/config - Saves updated layout config
@@ -402,6 +547,19 @@ app.post('/api/config', (req, res) => {
     // Safely restore masked credentials if the save request was made with fallback placeholders
     const finalConfig = JSON.parse(JSON.stringify(configData));
     const originalConfig = loadConfig();
+    
+    // Strip out all discovered Docker items and dynamically created Docker categories
+    finalConfig.categories = finalConfig.categories.map(cat => {
+      if (cat.items) {
+        cat.items = cat.items.filter(item => !item.isDiscovered);
+      }
+      return cat;
+    }).filter(cat => {
+      const isDynamicDockerCat = cat.id.startsWith('cat-docker-');
+      const isEmpty = !cat.items || cat.items.length === 0;
+      return !(isDynamicDockerCat && isEmpty);
+    });
+
     finalConfig.categories = finalConfig.categories.map(cat => {
       if (cat.type === 'proxmox') {
         const originalCat = originalConfig.categories.find(o => o.id === cat.id);

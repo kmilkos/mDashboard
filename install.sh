@@ -91,6 +91,10 @@ NODE_ENV=production
 # MDASH_PROXY_AUTH_HEADER=Remote-User
 # MDASH_PROXY_AUTH_VALUE=kmilkos,admin
 # MDASH_TRUST_PROXIES=loopback,172.16.0.0/12
+
+# --- Docker Socket Discovery (Optional) ---
+# MDASH_DOCKER_DISCOVERY=false
+# MDASH_DOCKER_SOCKET=/var/run/docker.sock
 EOF
   # Secure the .env file so only the owner can read it
   chown "${TARGET_USER}:${TARGET_USER}" "$ENV_FILE"
@@ -153,6 +157,18 @@ if systemctl is-active --quiet mdash.service; then
   echo -e "  - Restart dashboard:  ${YELLOW}sudo systemctl restart mdash${NC}"
   echo -e "  - Stop dashboard:     ${YELLOW}sudo systemctl stop mdash${NC}"
   echo -e "${GREEN}=========================================================================${NC}"
+
+  # Check if docker group exists and target user is not in it
+  if getent group docker >/dev/null; then
+    if ! id -nG "$TARGET_USER" | grep -qw docker; then
+      echo -e "\n${YELLOW}⚠️ Docker Group Permission Check Needed:${NC}"
+      echo -e "To enable Docker Auto-Discovery (MDASH_DOCKER_DISCOVERY=true in .env),"
+      echo -e "user '${TARGET_USER}' must have access to /var/run/docker.sock."
+      echo -e "Run the following command to add the user to the docker group:"
+      echo -e "  ${BLUE}sudo usermod -aG docker ${TARGET_USER}${NC}"
+      echo -e "Then restart the dashboard: ${BLUE}sudo systemctl restart mdash${NC}"
+    fi
+  fi
 else
   echo -e "\n${RED}Warning: mDash service registered but failed to start successfully.${NC}"
   echo "Please check service logs by running: sudo journalctl -u mdash -n 50"
