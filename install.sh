@@ -86,6 +86,11 @@ else
 MDASH_PASSWORD=${mdash_pw}
 PORT=${mdash_port}
 NODE_ENV=production
+
+# --- Reverse Proxy Header Authentication (Optional) ---
+# MDASH_PROXY_AUTH_HEADER=Remote-User
+# MDASH_PROXY_AUTH_VALUE=kmilkos,admin
+# MDASH_TRUST_PROXIES=loopback,172.16.0.0/12
 EOF
   # Secure the .env file so only the owner can read it
   chown "${TARGET_USER}:${TARGET_USER}" "$ENV_FILE"

@@ -10,8 +10,10 @@ import { fileURLToPath } from 'url';
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 const ADMIN_PASSWORD = process.env.MDASH_PASSWORD;
-const AUTH_ENABLED = !!ADMIN_PASSWORD;
-const SESSION_TOKEN = AUTH_ENABLED ? crypto.randomBytes(32).toString('hex') : null;
+const PROXY_AUTH_HEADER = process.env.MDASH_PROXY_AUTH_HEADER ? process.env.MDASH_PROXY_AUTH_HEADER.toLowerCase() : null;
+const PROXY_AUTH_VALUE = process.env.MDASH_PROXY_AUTH_VALUE ? process.env.MDASH_PROXY_AUTH_VALUE.split(',').map(v => v.trim().toLowerCase()) : null;
+const AUTH_ENABLED = !!ADMIN_PASSWORD || !!PROXY_AUTH_HEADER;
+const SESSION_TOKEN = ADMIN_PASSWORD ? crypto.randomBytes(32).toString('hex') : null;
 
 // --- Host Resource Monitoring Setup ---
 function getCpuUsage() {
@@ -105,6 +107,11 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3080;
 const CONFIG_FILE = path.join(__dirname, 'config.json');
+
+const TRUST_PROXIES = process.env.MDASH_TRUST_PROXIES;
+if (TRUST_PROXIES) {
+  app.set('trust proxy', TRUST_PROXIES.toLowerCase() === 'true' ? true : TRUST_PROXIES);
+}
 
 app.use(express.json());
 
@@ -284,17 +291,66 @@ function loadConfig() {
 // Authentication helper
 function isRequestAuthenticated(req) {
   if (!AUTH_ENABLED) return true;
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) return false;
-  const token = authHeader.substring(7);
-  return token === SESSION_TOKEN;
+
+  // 1. Check if authenticated via proxy headers
+  if (PROXY_AUTH_HEADER) {
+    const proxyUser = req.headers[PROXY_AUTH_HEADER];
+    if (proxyUser) {
+      if (PROXY_AUTH_VALUE) {
+        if (PROXY_AUTH_VALUE.includes(proxyUser.toLowerCase())) {
+          return true;
+        }
+      } else {
+        return true;
+      }
+    }
+  }
+
+  // 2. Check if authenticated via bearer session token (password auth)
+  if (ADMIN_PASSWORD) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      if (token === SESSION_TOKEN) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+// Helper to determine the auth method used for a request
+function getRequestAuthMethod(req) {
+  if (!AUTH_ENABLED) return 'none';
+  
+  if (PROXY_AUTH_HEADER && req.headers[PROXY_AUTH_HEADER]) {
+    const proxyUser = req.headers[PROXY_AUTH_HEADER];
+    if (!PROXY_AUTH_VALUE || PROXY_AUTH_VALUE.includes(proxyUser.toLowerCase())) {
+      return 'proxy';
+    }
+  }
+  
+  if (ADMIN_PASSWORD) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      if (token === SESSION_TOKEN) {
+        return 'password';
+      }
+    }
+  }
+  
+  return 'none';
 }
 
 // GET /api/auth/status - Check if auth is enabled and status
 app.get('/api/auth/status', (req, res) => {
+  const authenticated = isRequestAuthenticated(req);
   res.json({
     authEnabled: AUTH_ENABLED,
-    authenticated: isRequestAuthenticated(req)
+    authenticated: authenticated,
+    authMethod: authenticated ? getRequestAuthMethod(req) : 'none'
   });
 });
 

@@ -422,7 +422,8 @@ async function checkAuthStatus() {
       
       const logoutBtn = document.getElementById("logout-btn");
       if (logoutBtn) {
-        logoutBtn.style.display = (authEnabled && authenticated) ? "inline-flex" : "none";
+        const isProxyAuth = data.authMethod === "proxy";
+        logoutBtn.style.display = (authEnabled && authenticated && !isProxyAuth) ? "inline-flex" : "none";
       }
     }
   } catch (e) {
@@ -445,7 +446,7 @@ async function initAppState() {
       await checkAuthStatus();
       
       let configData;
-      if (authEnabled && authenticated) {
+      if (authEnabled && authenticated && token) {
         // Fetch full config using token
         const fullResponse = await fetch('/api/config', {
           headers: { "Authorization": `Bearer ${token}` }
