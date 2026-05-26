@@ -41,6 +41,19 @@
               <span id="host-uptime">—</span>
             </div>
           </div>
+          <!-- Weather Widget -->
+          <div class="weather-widget" id="weather-widget" style="display: none;" title="Local Weather">
+            <div class="weather-icon-wrapper" id="weather-icon-wrapper">
+              <i class="fas fa-sun weather-icon-spin"></i>
+            </div>
+            <div class="weather-details">
+              <div class="weather-temp-row">
+                <span id="weather-temp">—°C</span>
+                <span id="weather-desc">Loading...</span>
+              </div>
+              <div id="weather-location" class="weather-location">Auto-detecting...</div>
+            </div>
+          </div>
         </div>
         <h1 class="welcome-message" id="welcome-message">Hello!</h1>
       </div>
@@ -341,6 +354,43 @@
         <div class="form-group">
           <label for="settings-username">Greeting Username</label>
           <input type="text" id="settings-username" placeholder="e.g., kmilkos">
+        </div>
+      </section>
+
+      <section class="settings-section">
+        <h3>Widgets</h3>
+        
+        <div class="form-group">
+          <label for="settings-weather-enable" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: 500; color: var(--text-primary);">
+            <input type="checkbox" id="settings-weather-enable" style="width: auto; margin: 0;">
+            Enable Weather Forecast Widget
+          </label>
+        </div>
+
+        <div id="weather-settings-fields" style="display: none; flex-direction: column; gap: 1rem;">
+          <div class="form-group">
+            <label for="settings-weather-location">Location Name</label>
+            <input type="text" id="settings-weather-location" placeholder="e.g., Munich, Germany (Leave blank for IP auto-detection)">
+            <div class="settings-helper-text">Enter a city name or leave blank to automatically detect location via IP.</div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="settings-weather-unit">Temperature Unit</label>
+              <select id="settings-weather-unit">
+                <option value="celsius">Celsius (°C)</option>
+                <option value="fahrenheit">Fahrenheit (°F)</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label style="opacity: 0.7;">Manual Coordinates (Optional)</label>
+              <div style="display: flex; gap: 0.5rem;">
+                <input type="text" id="settings-weather-latitude" placeholder="Latitude" style="flex: 1;">
+                <input type="text" id="settings-weather-longitude" placeholder="Longitude" style="flex: 1;">
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 

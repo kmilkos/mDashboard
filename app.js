@@ -153,7 +153,12 @@ const DEFAULT_CONFIG = {
     searchEngine: "google",
     layout: "columns",
     catCols: "auto",
-    itemCols: "auto"
+    itemCols: "auto",
+    weatherEnable: true,
+    weatherLocation: "",
+    weatherUnit: "celsius",
+    weatherLat: "",
+    weatherLon: ""
   }
 };
 
@@ -312,6 +317,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   await initAppState();
   setupClock();
   setupTheme();
+  initWeatherWidget();
   setupSearchEngine();
   setupDialogPolyfills();
   setupEventListeners();
@@ -587,6 +593,31 @@ function setupTheme() {
   // Sync the dropdown selects in settings
   document.getElementById("settings-cat-cols").value = state.settings.catCols || "auto";
   document.getElementById("settings-item-cols").value = state.settings.itemCols || "auto";
+
+  // Sync Weather settings
+  const weatherEnable = state.settings.weatherEnable !== false; // true by default
+  const weatherCheckbox = document.getElementById("settings-weather-enable");
+  if (weatherCheckbox) {
+    weatherCheckbox.checked = weatherEnable;
+    const weatherFields = document.getElementById("weather-settings-fields");
+    if (weatherFields) weatherFields.style.display = weatherEnable ? "flex" : "none";
+  }
+  const weatherLocationInput = document.getElementById("settings-weather-location");
+  if (weatherLocationInput) {
+    weatherLocationInput.value = state.settings.weatherLocation || "";
+  }
+  const weatherUnitSelect = document.getElementById("settings-weather-unit");
+  if (weatherUnitSelect) {
+    weatherUnitSelect.value = state.settings.weatherUnit || "celsius";
+  }
+  const weatherLatInput = document.getElementById("settings-weather-latitude");
+  if (weatherLatInput) {
+    weatherLatInput.value = state.settings.weatherLat || "";
+  }
+  const weatherLonInput = document.getElementById("settings-weather-longitude");
+  if (weatherLonInput) {
+    weatherLonInput.value = state.settings.weatherLon || "";
+  }
 }
 
 // Listen to system theme changes in real-time if "system" theme is active
@@ -595,6 +626,151 @@ window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e)
     document.documentElement.setAttribute("data-theme", e.matches ? "dark" : "light");
   }
 });
+
+// ==========================================================================
+// Weather Forecast Widget
+// ==========================================================================
+let weatherInterval = null;
+
+function getWeatherDetails(code) {
+  switch (code) {
+    case 0:
+      return { desc: "Clear Sky", icon: "fas fa-sun", anim: "weather-icon-spin" };
+    case 1:
+      return { desc: "Mainly Clear", icon: "fas fa-cloud-sun", anim: "weather-icon-float" };
+    case 2:
+      return { desc: "Partly Cloudy", icon: "fas fa-cloud-sun", anim: "weather-icon-float" };
+    case 3:
+      return { desc: "Overcast", icon: "fas fa-cloud", anim: "weather-icon-float" };
+    case 45:
+    case 48:
+      return { desc: "Foggy", icon: "fas fa-smog", anim: "weather-icon-float" };
+    case 51:
+    case 53:
+    case 55:
+      return { desc: "Drizzle", icon: "fas fa-cloud-rain", anim: "weather-icon-pulse" };
+    case 61:
+    case 63:
+    case 65:
+      return { desc: "Rainy", icon: "fas fa-cloud-showers-heavy", anim: "weather-icon-pulse" };
+    case 71:
+    case 73:
+    case 75:
+      return { desc: "Snowy", icon: "fas fa-snowflake", anim: "weather-icon-float" };
+    case 77:
+      return { desc: "Snow Grains", icon: "fas fa-snowflake", anim: "weather-icon-float" };
+    case 80:
+    case 81:
+    case 82:
+      return { desc: "Rain Showers", icon: "fas fa-cloud-rain", anim: "weather-icon-pulse" };
+    case 85:
+    case 86:
+      return { desc: "Snow Showers", icon: "fas fa-snowflake", anim: "weather-icon-float" };
+    case 95:
+      return { desc: "Thunderstorm", icon: "fas fa-cloud-bolt", anim: "weather-icon-pulse" };
+    case 96:
+    case 99:
+      return { desc: "Thunderstorm / Hail", icon: "fas fa-cloud-bolt", anim: "weather-icon-pulse" };
+    default:
+      return { desc: "Unknown Weather", icon: "fas fa-cloud-sun", anim: "weather-icon-float" };
+  }
+}
+
+async function initWeatherWidget() {
+  const widget = document.getElementById("weather-widget");
+  if (!widget) return;
+  
+  if (weatherInterval) {
+    clearInterval(weatherInterval);
+    weatherInterval = null;
+  }
+  
+  if (state.settings.weatherEnable !== true) {
+    widget.style.display = "none";
+    return;
+  }
+  
+  widget.style.display = "flex";
+  
+  async function updateWeather() {
+    try {
+      let lat = state.settings.weatherLat;
+      let lon = state.settings.weatherLon;
+      let locationName = state.settings.weatherLocation || "";
+      
+      // 1. Resolve coordinates if not provided manually
+      if (!lat || !lon) {
+        if (locationName) {
+          // Resolve city name via Open-Meteo Geocoding
+          const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(locationName)}&count=1&language=en&format=json`);
+          const geoData = await geoRes.json();
+          if (geoData.results && geoData.results[0]) {
+            const first = geoData.results[0];
+            lat = first.latitude;
+            lon = first.longitude;
+            locationName = first.name + (first.country ? `, ${first.country}` : "");
+          } else {
+            throw new Error(`Location not found: ${locationName}`);
+          }
+        } else {
+          // IP Geolocation auto-detection
+          const ipRes = await fetch("https://ipapi.co/json/");
+          const ipData = await ipRes.json();
+          if (ipData.latitude && ipData.longitude) {
+            lat = ipData.latitude;
+            lon = ipData.longitude;
+            locationName = ipData.city + (ipData.country_name ? `, ${ipData.country_name}` : "");
+          } else {
+            // Fallback to London if geocode fails
+            lat = 51.5074;
+            lon = -0.1278;
+            locationName = "London, UK (Fallback)";
+          }
+        }
+      } else {
+        // If lat/lon are manual, clean display location
+        if (!locationName) {
+          locationName = `${parseFloat(lat).toFixed(2)}, ${parseFloat(lon).toFixed(2)}`;
+        }
+      }
+      
+      // 2. Fetch current weather
+      const unit = state.settings.weatherUnit === "fahrenheit" ? "fahrenheit" : "celsius";
+      const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&temperature_unit=${unit}`);
+      const weatherData = await weatherRes.json();
+      
+      if (weatherData.current_weather) {
+        const curr = weatherData.current_weather;
+        const details = getWeatherDetails(curr.weathercode);
+        
+        // Render values
+        const tempSpan = document.getElementById("weather-temp");
+        const descSpan = document.getElementById("weather-desc");
+        const locDiv = document.getElementById("weather-location");
+        const iconWrapper = document.getElementById("weather-icon-wrapper");
+        
+        if (tempSpan) tempSpan.textContent = `${Math.round(curr.temperature)}${unit === "fahrenheit" ? "°F" : "°C"}`;
+        if (descSpan) descSpan.textContent = details.desc;
+        if (locDiv) {
+          locDiv.textContent = locationName;
+          locDiv.title = locationName;
+        }
+        
+        // Render icon & animation
+        if (iconWrapper) {
+          iconWrapper.innerHTML = `<i class="${details.icon} ${details.anim}"></i>`;
+        }
+      }
+    } catch (err) {
+      console.error("Failed to update weather widget:", err);
+      const descSpan = document.getElementById("weather-desc");
+      if (descSpan) descSpan.textContent = "Error";
+    }
+  }
+  
+  updateWeather();
+  weatherInterval = setInterval(updateWeather, 900000); // 15 minutes
+}
 
 // ==========================================================================
 // Clock & Greeting Widget
@@ -1912,6 +2088,43 @@ function setupEventListeners() {
     state.settings.username = e.target.value.trim() || "kmilkos";
     saveAppState();
     updateTimeAndGreeting();
+  });
+
+  // Weather Enable changed
+  document.getElementById("settings-weather-enable").addEventListener("change", (e) => {
+    state.settings.weatherEnable = e.target.checked;
+    const weatherFields = document.getElementById("weather-settings-fields");
+    if (weatherFields) weatherFields.style.display = e.target.checked ? "flex" : "none";
+    saveAppState();
+    initWeatherWidget();
+  });
+  
+  // Weather Location changed
+  document.getElementById("settings-weather-location").addEventListener("change", (e) => {
+    state.settings.weatherLocation = e.target.value.trim();
+    saveAppState();
+    initWeatherWidget();
+  });
+
+  // Weather Unit changed
+  document.getElementById("settings-weather-unit").addEventListener("change", (e) => {
+    state.settings.weatherUnit = e.target.value;
+    saveAppState();
+    initWeatherWidget();
+  });
+
+  // Weather Latitude changed
+  document.getElementById("settings-weather-latitude").addEventListener("change", (e) => {
+    state.settings.weatherLat = e.target.value.trim();
+    saveAppState();
+    initWeatherWidget();
+  });
+
+  // Weather Longitude changed
+  document.getElementById("settings-weather-longitude").addEventListener("change", (e) => {
+    state.settings.weatherLon = e.target.value.trim();
+    saveAppState();
+    initWeatherWidget();
   });
   
   // Settings Export

@@ -1730,4 +1730,102 @@ html[data-theme="light"] .docker-badge-text {
   border: 1px solid rgba(36, 150, 237, 0.2);
 }
 
+/* --- Weather Widget Styles --- */
+.weather-widget {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+  background: var(--surface-bg);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  height: 52px;
+  transition: all var(--transition-normal);
+}
 
+.weather-widget:hover {
+  border-color: var(--primary-color);
+  box-shadow: 0 4px 12px var(--surface-glow);
+}
+
+.weather-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  width: 32px;
+  height: 32px;
+  color: var(--primary-color);
+}
+
+.weather-icon-wrapper i {
+  color: var(--primary-color);
+}
+
+.weather-details {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.weather-temp-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+#weather-desc {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.weather-location {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-weight: 300;
+  max-width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Dynamic Conditions Animations */
+.weather-icon-spin {
+  animation: sun-spin 12s linear infinite;
+  color: #f59e0b !important; /* Premium Sunny Amber */
+}
+
+.weather-icon-float {
+  animation: cloud-float 4s ease-in-out infinite;
+  color: #94a3b8 !important; /* Soft cloudy grey-blue */
+}
+
+.weather-icon-pulse {
+  animation: rain-pulse 2s ease-in-out infinite;
+  color: #60a5fa !important; /* Rainy soft blue */
+}
+
+@keyframes sun-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes cloud-float {
+  0% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-2px) scale(1.04); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+@keyframes rain-pulse {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(1.5px) scale(0.97); }
+  100% { transform: translateY(0); }
+}

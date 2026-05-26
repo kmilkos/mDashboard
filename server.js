@@ -411,7 +411,12 @@ const DEFAULT_CONFIG = {
     searchEngine: "google",
     layout: "columns",
     catCols: "auto",
-    itemCols: "auto"
+    itemCols: "auto",
+    weatherEnable: true,
+    weatherLocation: "",
+    weatherUnit: "celsius",
+    weatherLat: "",
+    weatherLon: ""
   }
 };
 
