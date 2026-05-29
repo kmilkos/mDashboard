@@ -160,10 +160,9 @@ body.has-bg-image .bg-glow {
 
 /* --- Layout Container --- */
 .app-container {
-  max-width: 1440px;
   width: 100%;
   margin: 0 auto;
-  padding: 2.5rem 1.5rem;
+  /* removed max-width and padding for full-width layout */
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -684,6 +683,59 @@ body.edit-mode-active .category-actions {
   overflow: hidden;
   text-overflow: ellipsis;
   font-weight: 300;
+}
+
+/* --- Simple Bookmarks (Links) --- */
+.simple-bookmark-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.5rem;
+}
+
+.simple-bookmark-item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.85rem;
+  background: var(--surface-light);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  overflow: hidden;
+  /* Add subtle glow effect for the border matching the accent color */
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.simple-bookmark-item:hover {
+  background: var(--surface-lighter);
+  border-color: var(--card-accent, var(--primary-color));
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(var(--card-accent-rgb, 99, 102, 241), 0.15);
+}
+
+.simple-bookmark-item i {
+  color: var(--card-accent, var(--primary-color));
+  font-size: 1.1rem;
+}
+
+.simple-bookmark-item .card-edit-overlay {
+  flex-direction: row;
+  border-radius: var(--radius-md);
+  background: rgba(15, 23, 42, 0.9);
+  padding: 0 0.25rem;
+  gap: 0.25rem;
+}
+
+.simple-bookmark-item .card-edit-overlay .icon-btn {
+  width: 26px;
+  height: 26px;
+  font-size: 0.85rem;
 }
 
 /* --- Edit Mode Overlays --- */
@@ -1283,6 +1335,30 @@ body.edit-mode-active .cat-drag-handle {
 }
 
 /* ==========================================================================
+   Bookmarks Workspace (Bottom Section)
+   ========================================================================== */
+.bookmarks-workspace {
+  margin: 3rem auto 1rem auto;
+  padding: 2rem 1.5rem 0 1.5rem;
+  width: 100%;
+  max-width: var(--max-width);
+  border-top: 1px solid var(--surface-border);
+  display: grid;
+  grid-template-columns: var(--bookmark-workspace-cols, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.bookmarks-workspace .category-section {
+  gap: 0.75rem;
+}
+
+.bookmarks-workspace .category-header h2 {
+  font-size: 1rem;
+  color: var(--text-secondary);
+}
+
+/* ==========================================================================
    Footer
    ========================================================================== */
 .dashboard-footer {
@@ -1828,4 +1904,52 @@ html[data-theme="light"] .docker-badge-text {
   0% { transform: translateY(0); }
   50% { transform: translateY(1.5px) scale(0.97); }
   100% { transform: translateY(0); }
+}
+/* Toast Notifications */
+.toast-container {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+.toast {
+  min-width: 250px;
+  max-width: 350px;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  color: #fff;
+  background: var(--toast-bg, #333);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  opacity: 0;
+  transform: translateY(-20px);
+  pointer-events: auto;
+  animation: toastIn 0.3s forwards;
+}
+.toast[data-type="success"] { --toast-bg: #28a745; }
+.toast[data-type="error"]   { --toast-bg: #dc3545; }
+.toast[data-type="warning"] { --toast-bg: #ffc107; color:#212529; }
+.toast[data-type="info"]    { --toast-bg: #17a2b8; }
+.toast .close-btn {
+  margin-left: 0.75rem;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+@keyframes toastIn {
+  to { opacity:1; transform: translateY(0); }
+}
+@keyframes toastOut {
+  to { opacity:0; transform: translateY(-20px); }
+}
+.toast.hide {
+  animation: toastOut 0.3s forwards;
 }

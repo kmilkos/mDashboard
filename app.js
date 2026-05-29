@@ -309,6 +309,53 @@ function startProxmoxPolling() {
     });
   }, 5000);
 }
+// Toast notification system
+class ToastManager {
+  constructor() {
+    this.container = document.getElementById('toast-container');
+    this.maxToasts = 3; // user preference
+    this.autoDismiss = 4000; // ms
+  }
+
+  _removeToast(toast) {
+    toast.classList.add('toast-out');
+    toast.addEventListener('animationend', () => {
+      toast.remove();
+    });
+  }
+
+  show(message, type = 'info') {
+    if (!this.container) return;
+    // Enforce max toasts
+    while (this.container.children.length >= this.maxToasts) {
+      this._removeToast(this.container.firstElementChild);
+    }
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.dataset.type = type;
+    toast.innerHTML = `<span>${message}</span><button class="close-btn" aria-label="Close toast">&times;</button>`;
+    // Close button handler
+    toast.querySelector('.close-btn').addEventListener('click', () => this._removeToast(toast));
+    // Pause on hover
+    toast.addEventListener('mouseenter', () => {
+      clearTimeout(toast.dismissTimer);
+    });
+    toast.addEventListener('mouseleave', () => {
+      toast.dismissTimer = setTimeout(() => this._removeToast(toast), this.autoDismiss);
+    });
+    // Auto‑dismiss
+    toast.dismissTimer = setTimeout(() => this._removeToast(toast), this.autoDismiss);
+    this.container.appendChild(toast);
+  }
+}
+
+// Global helper
+function showToast(message, type = 'info') {
+  if (!window._toastMgr) {
+    window._toastMgr = new ToastManager();
+  }
+  window._toastMgr.show(message, type);
+}
 
 // ==========================================================================
 // Initialization
@@ -404,6 +451,10 @@ function checkAdminAuth(action) {
     window.postLoginAction = action;
     dialog.showModal();
     return false;
+  }
+  
+  if (typeof action === 'function') {
+    action();
   }
   return true;
 }
@@ -511,9 +562,11 @@ async function saveAppState() {
       });
       if (response.ok) {
         console.log("Configuration saved to Express server.");
+showToast('Configuration saved', 'success');
         return;
       }
       console.error("Failed to save configuration to Express server, status:", response.status);
+showToast('Failed to save configuration', 'error');
     } catch (error) {
       console.error("Error saving configuration to Express server:", error);
     }
@@ -587,12 +640,23 @@ function setupTheme() {
     }
   }
   
+  const bookmarksContainer = document.getElementById("bookmarks-container");
+  if (bookmarksContainer) {
+    const bookmarkCols = state.settings.bookmarkCols || "auto";
+    if (bookmarkCols === "auto") {
+      bookmarksContainer.style.removeProperty("--bookmark-workspace-cols");
+    } else {
+      bookmarksContainer.style.setProperty("--bookmark-workspace-cols", `repeat(${bookmarkCols}, minmax(0, 1fr))`);
+    }
+  }
+  
   document.getElementById("settings-bg-url").value = bgUrl;
   document.getElementById("settings-username").value = state.settings.username || "";
   
   // Sync the dropdown selects in settings
   document.getElementById("settings-cat-cols").value = state.settings.catCols || "auto";
   document.getElementById("settings-item-cols").value = state.settings.itemCols || "auto";
+  document.getElementById("settings-bookmark-cols").value = state.settings.bookmarkCols || "auto";
 
   // Sync Weather settings
   const weatherEnable = state.settings.weatherEnable !== false; // true by default
@@ -994,6 +1058,9 @@ function renderDashboard() {
   const pveSidebar = document.getElementById("proxmox-sidebar");
   if (pveSidebar) pveSidebar.innerHTML = "";
   
+  const bookmarksContainer = document.getElementById("bookmarks-container");
+  if (bookmarksContainer) bookmarksContainer.innerHTML = "";
+  
   const hasProxmox = state.categories.some(c => c.type === "proxmox");
   const layoutWrapper = document.getElementById("dashboard-layout-wrapper");
   if (layoutWrapper) {
@@ -1183,17 +1250,22 @@ function renderDashboard() {
     
     // Links Grid
     const linksGrid = document.createElement("div");
-    linksGrid.className = "links-grid";
     
-    // Set custom item columns CSS variable
-    const globalItemCols = state.settings.itemCols || "auto";
-    const catItemCols = category.itemCols || "default";
-    const finalItemCols = catItemCols === "default" ? globalItemCols : catItemCols;
-    
-    if (finalItemCols === "auto") {
-      linksGrid.style.removeProperty("--grid-item-cols");
+    if (category.type === "bookmarks") {
+      linksGrid.className = "simple-bookmark-list";
     } else {
-      linksGrid.style.setProperty("--grid-item-cols", `repeat(${finalItemCols}, minmax(0, 1fr))`);
+      linksGrid.className = "links-grid";
+      
+      // Set custom item columns CSS variable
+      const globalItemCols = state.settings.itemCols || "auto";
+      const catItemCols = category.itemCols || "default";
+      const finalItemCols = catItemCols === "default" ? globalItemCols : catItemCols;
+      
+      if (finalItemCols === "auto") {
+        linksGrid.style.removeProperty("--grid-item-cols");
+      } else {
+        linksGrid.style.setProperty("--grid-item-cols", `repeat(${finalItemCols}, minmax(0, 1fr))`);
+      }
     }
     
     if (category.type === "proxmox") {
@@ -1403,7 +1475,8 @@ function renderDashboard() {
       category.items.forEach((item, itemIndex) => {
         const card = document.createElement("a");
         card.href = item.url;
-        card.className = "bookmark-card";
+        const isSimple = category.type === "bookmarks";
+        card.className = isSimple ? "simple-bookmark-item" : "bookmark-card";
         card.target = "_blank";
         card.rel = "noopener noreferrer";
         card.style.setProperty("--card-accent", item.color || "var(--primary-color)");
@@ -1468,38 +1541,57 @@ function renderDashboard() {
           });
         }
         
-        // Icon Box
-        const iconWrapper = document.createElement("div");
-        iconWrapper.className = "card-icon-wrapper";
-        
-        if (item.icon && (item.icon.startsWith("http://") || item.icon.startsWith("https://") || item.icon.startsWith("data:") || item.icon.startsWith("/"))) {
-          const img = document.createElement("img");
-          img.src = item.icon;
-          img.alt = item.name;
-          img.onerror = () => { img.style.display = "none"; iconWrapper.innerHTML = '<i class="fas fa-link"></i>'; };
-          iconWrapper.appendChild(img);
+        if (isSimple) {
+          if (item.icon && (item.icon.startsWith("http://") || item.icon.startsWith("https://") || item.icon.startsWith("data:") || item.icon.startsWith("/"))) {
+            const img = document.createElement("img");
+            img.src = item.icon;
+            img.alt = item.name;
+            img.style.width = "1.2rem";
+            img.style.height = "1.2rem";
+            img.style.objectFit = "contain";
+            img.onerror = () => { img.style.display = "none"; card.insertAdjacentHTML("afterbegin", '<i class="fas fa-link"></i>'); };
+            card.appendChild(img);
+          } else {
+            const faIcon = document.createElement("i");
+            faIcon.className = item.icon || "fas fa-link";
+            card.appendChild(faIcon);
+          }
+          const textNode = document.createTextNode(item.name);
+          card.appendChild(textNode);
         } else {
-          const faIcon = document.createElement("i");
-          faIcon.className = item.icon || "fas fa-link";
-          iconWrapper.appendChild(faIcon);
+          // Icon Box
+          const iconWrapper = document.createElement("div");
+          iconWrapper.className = "card-icon-wrapper";
+          
+          if (item.icon && (item.icon.startsWith("http://") || item.icon.startsWith("https://") || item.icon.startsWith("data:") || item.icon.startsWith("/"))) {
+            const img = document.createElement("img");
+            img.src = item.icon;
+            img.alt = item.name;
+            img.onerror = () => { img.style.display = "none"; iconWrapper.innerHTML = '<i class="fas fa-link"></i>'; };
+            iconWrapper.appendChild(img);
+          } else {
+            const faIcon = document.createElement("i");
+            faIcon.className = item.icon || "fas fa-link";
+            iconWrapper.appendChild(faIcon);
+          }
+          card.appendChild(iconWrapper);
+          
+          // Card text
+          const content = document.createElement("div");
+          content.className = "card-content";
+          
+          const cardTitle = document.createElement("div");
+          cardTitle.className = "card-title";
+          cardTitle.textContent = item.name;
+          content.appendChild(cardTitle);
+          
+          const cardDesc = document.createElement("div");
+          cardDesc.className = "card-desc";
+          cardDesc.textContent = item.desc || "";
+          content.appendChild(cardDesc);
+          
+          card.appendChild(content);
         }
-        card.appendChild(iconWrapper);
-        
-        // Card text
-        const content = document.createElement("div");
-        content.className = "card-content";
-        
-        const cardTitle = document.createElement("div");
-        cardTitle.className = "card-title";
-        cardTitle.textContent = item.name;
-        content.appendChild(cardTitle);
-        
-        const cardDesc = document.createElement("div");
-        cardDesc.className = "card-desc";
-        cardDesc.textContent = item.desc || "";
-        content.appendChild(cardDesc);
-        
-        card.appendChild(content);
         
         // Status Dot (visible if in serverMode)
         if (serverMode) {
@@ -1606,10 +1698,21 @@ function renderDashboard() {
     
     if (category.type === "proxmox" && pveSidebar) {
       pveSidebar.appendChild(section);
+    } else if (category.type === "bookmarks" && bookmarksContainer) {
+      bookmarksContainer.appendChild(section);
     } else {
       container.appendChild(section);
     }
   });
+  
+  // Hide bookmarks container if empty and not in edit mode
+  if (bookmarksContainer) {
+    if (bookmarksContainer.children.length === 0 && !state.editMode) {
+      bookmarksContainer.style.display = "none";
+    } else {
+      bookmarksContainer.style.display = "";
+    }
+  }
   
   // Add Category Button at the very bottom (visible in Edit Mode)
   if (state.editMode) {
@@ -1861,6 +1964,7 @@ function setupEventListeners() {
           sessionStorage.setItem("mdash_auth_token", data.token);
           authenticated = true;
           loginDialog.close();
+          showToast('Login successful', 'success');
           
           // Re-fetch config to get unmasked Proxmox credentials
           const token = sessionStorage.getItem("mdash_auth_token");
@@ -1887,11 +1991,13 @@ function setupEventListeners() {
           const errData = await response.json().catch(() => ({ error: "Incorrect password." }));
           loginErrorMsg.style.display = "flex";
           loginErrorText.textContent = errData.error || "Incorrect password.";
+          showToast('Incorrect password', 'error');
         }
       } catch (error) {
         console.error("Login request error:", error);
         loginErrorMsg.style.display = "flex";
         loginErrorText.textContent = "Server communication failure.";
+        showToast('Login request failed', 'error');
       }
     });
   }
@@ -2012,32 +2118,35 @@ function setupEventListeners() {
     }
   });
 
-  // 3. Edit Mode Toggle
+  // 3. Edit Mode Toggle with proper auth handling
   document.getElementById("toggle-edit-btn").addEventListener("click", () => {
-    if (!checkAdminAuth(() => {
-      state.editMode = true;
+    checkAdminAuth(() => {
+      state.editMode = !state.editMode;
+      // Clear search filter when toggling edit mode to reveal all links
       searchInput.value = "";
       clearBtn.style.display = "none";
       renderDashboard();
-    })) return;
-
-    state.editMode = !state.editMode;
-    // Clear search filter when toggling edit mode to reveal all links
-    searchInput.value = "";
-    clearBtn.style.display = "none";
-    renderDashboard();
+    });
   });
   
-  // 4. Settings Panel Dialog Trigger
+  // 4. Settings Panel Dialog Trigger with proper auth handling
   document.getElementById("settings-btn").addEventListener("click", () => {
-    if (!checkAdminAuth(() => {
+    checkAdminAuth(() => {
       const dialog = document.getElementById("settings-dialog");
       dialog.showModal();
-    })) return;
-
-    const dialog = document.getElementById("settings-dialog");
-    dialog.showModal();
+    });
   });
+
+  // Theme Toggle Button (Header)
+  const themeToggleBtn = document.getElementById("theme-toggle-btn");
+  if (themeToggleBtn) {
+    themeToggleBtn.addEventListener("click", () => {
+      const currentTheme = state.settings.theme || "dark";
+      state.settings.theme = currentTheme === "dark" ? "light" : "dark";
+      saveAppState();
+      setupTheme();
+    });
+  }
   
   // Theme Toggle buttons in settings panel
   document.querySelectorAll(".theme-btn").forEach(btn => {
@@ -2071,6 +2180,14 @@ function setupEventListeners() {
   // Default Item Columns dropdown change listener
   document.getElementById("settings-item-cols").addEventListener("change", (e) => {
     state.settings.itemCols = e.target.value;
+    saveAppState();
+    setupTheme();
+    renderDashboard();
+  });
+
+  // Bookmark Workspace Columns dropdown change listener
+  document.getElementById("settings-bookmark-cols").addEventListener("change", (e) => {
+    state.settings.bookmarkCols = e.target.value;
     saveAppState();
     setupTheme();
     renderDashboard();
@@ -2190,6 +2307,7 @@ function setupEventListeners() {
       setupSearchEngine();
       startProxmoxPolling();
       renderDashboard();
+      showToast('Dashboard reset to defaults', 'info');
       document.getElementById("settings-dialog").close();
     }
   });
@@ -2220,6 +2338,7 @@ function setupEventListeners() {
 
   // 5. Category Form Submission Handler
   document.getElementById("category-form").addEventListener("submit", (e) => {
+    e.preventDefault();
     const catIdInput = document.getElementById("category-id").value;
     const name = document.getElementById("category-name").value.trim();
     const icon = document.getElementById("category-icon").value.trim() || "fas fa-folder";
@@ -2280,6 +2399,7 @@ function setupEventListeners() {
       fetchProxmoxResources(activeCat);
     }
     
+    document.getElementById("category-dialog").close();
     renderDashboard();
   });
 
@@ -2300,7 +2420,8 @@ function setupEventListeners() {
   });
   
   // 6. Item Form Submission Handler
-  document.getElementById("item-form").addEventListener("submit", () => {
+  document.getElementById("item-form").addEventListener("submit", (e) => {
+    e.preventDefault();
     const itemIdInput = document.getElementById("item-id").value;
     const catId = document.getElementById("item-category-id").value;
     const name = document.getElementById("item-name").value.trim();
@@ -2337,5 +2458,6 @@ function setupEventListeners() {
     
     saveAppState();
     renderDashboard();
+    document.getElementById("item-dialog").close();
   });
 }
