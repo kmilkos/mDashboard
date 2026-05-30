@@ -937,6 +937,187 @@ function setupDialogPolyfills() {
 }
 
 // ==========================================================================
+// Dynamic Icon Resolver & Renderer Helpers
+// ==========================================================================
+const svgCache = {};
+
+function renderSvgText(svgText, container, color) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(svgText, "image/svg+xml");
+  const svg = doc.querySelector("svg");
+  if (svg) {
+    svg.style.width = "100%";
+    svg.style.height = "100%";
+    svg.style.display = "block";
+    
+    // Reset core fill/stroke attributes to let styles take precedence
+    svg.removeAttribute("fill");
+    svg.removeAttribute("stroke");
+    svg.style.fill = color || "currentColor";
+    svg.style.color = color || "currentColor";
+    
+    const elements = svg.querySelectorAll("path, circle, rect, polygon, ellipse, line, polyline");
+    elements.forEach(el => {
+      const fillVal = el.getAttribute("fill");
+      if (fillVal !== "none") {
+        el.setAttribute("fill", color || "currentColor");
+      }
+      const strokeVal = el.getAttribute("stroke");
+      if (strokeVal && strokeVal !== "none") {
+        el.setAttribute("stroke", color || "currentColor");
+      }
+    });
+    
+    container.innerHTML = "";
+    container.appendChild(svg);
+  } else {
+    container.innerHTML = '<i class="fas fa-link"></i>';
+  }
+}
+
+function loadSvgColored(url, container, color) {
+  // Temporary loading spinning state
+  container.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i>';
+  
+  if (svgCache[url]) {
+    renderSvgText(svgCache[url], container, color);
+    return;
+  }
+  
+  fetch(url)
+    .then(res => {
+      if (!res.ok) throw new Error();
+      return res.text();
+    })
+    .then(text => {
+      svgCache[url] = text;
+      renderSvgText(text, container, color);
+    })
+    .catch(() => {
+      container.innerHTML = '<i class="fas fa-link"></i>';
+    });
+}
+
+function parseIconSpec(iconStr) {
+  if (!iconStr) {
+    return { type: "fontawesome", class: "fas fa-link" };
+  }
+  
+  iconStr = iconStr.trim();
+  
+  // Absolute URLs (e.g. remote https://...) or absolute local paths
+  if (iconStr.startsWith("http://") || iconStr.startsWith("https://") || iconStr.startsWith("data:") || iconStr.startsWith("/")) {
+    return { type: "image", url: iconStr };
+  }
+  
+  // Material Design Icons (mdi-XX or mdi-XX-#color)
+  if (iconStr.startsWith("mdi-")) {
+    const match = iconStr.match(/^mdi-([a-zA-Z0-9-]+)(?:-(#[a-fA-F0-9]{3,8}))?$/);
+    if (match) {
+      const name = match[1];
+      const color = match[2];
+      return {
+        type: "svg-colored",
+        url: `https://cdn.jsdelivr.net/npm/@mdi/svg@7.4.47/svg/${name}.svg`,
+        color: color
+      };
+    }
+  }
+  
+  // Simple Icons (si-XX or si-XX-#color)
+  if (iconStr.startsWith("si-")) {
+    const match = iconStr.match(/^si-([a-zA-Z0-9-]+)(?:-(#[a-fA-F0-9]{3,8}))?$/);
+    if (match) {
+      const name = match[1];
+      const color = match[2];
+      return {
+        type: "svg-colored",
+        url: `https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/${name}.svg`,
+        color: color
+      };
+    }
+  }
+  
+  // selfh.st/icons (sh-XX or sh-XX.ext)
+  if (iconStr.startsWith("sh-")) {
+    const match = iconStr.match(/^sh-([a-zA-Z0-9-]+)(?:\.(svg|png|webp))?$/);
+    if (match) {
+      const name = match[1];
+      const ext = match[2] || "png";
+      return {
+        type: "image",
+        url: `https://cdn.jsdelivr.net/gh/selfhst/icons/${ext}/${name}.${ext}`
+      };
+    }
+  }
+  
+  // FontAwesome class name
+  if (iconStr.includes(" ") || iconStr.startsWith("fa-")) {
+    return { type: "fontawesome", class: iconStr };
+  }
+  
+  // Default: Dashboard Icons (with or without extension)
+  const dotIndex = iconStr.lastIndexOf(".");
+  let name = iconStr;
+  let ext = "png";
+  if (dotIndex !== -1) {
+    name = iconStr.substring(0, dotIndex);
+    ext = iconStr.substring(dotIndex + 1);
+  }
+  return {
+    type: "image",
+    url: `https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/${ext}/${name}.${ext}`
+  };
+}
+
+function renderIconInto(iconStr, container, isSimpleMode, itemName, defaultColor) {
+  const spec = parseIconSpec(iconStr);
+  
+  if (spec.type === "fontawesome") {
+    const i = document.createElement("i");
+    i.className = spec.class;
+    if (isSimpleMode) {
+      i.style.fontSize = "1rem";
+    }
+    container.appendChild(i);
+  } else if (spec.type === "image") {
+    const img = document.createElement("img");
+    img.src = spec.url;
+    img.alt = itemName;
+    if (isSimpleMode) {
+      img.style.width = "1.2rem";
+      img.style.height = "1.2rem";
+      img.style.objectFit = "contain";
+    } else {
+      img.style.width = "100%";
+      img.style.height = "100%";
+      img.style.objectFit = "contain";
+    }
+    img.onerror = () => {
+      img.style.display = "none";
+      const fallback = document.createElement("i");
+      fallback.className = "fas fa-link";
+      container.appendChild(fallback);
+    };
+    container.appendChild(img);
+  } else if (spec.type === "svg-colored") {
+    const iconSpan = document.createElement("span");
+    iconSpan.style.display = "inline-flex";
+    iconSpan.style.alignItems = "center";
+    iconSpan.style.justifyContent = "center";
+    if (isSimpleMode) {
+      iconSpan.style.width = "1.2rem";
+      iconSpan.style.height = "1.2rem";
+    } else {
+      iconSpan.style.width = "100%";
+      iconSpan.style.height = "100%";
+    }
+    container.appendChild(iconSpan);
+    loadSvgColored(spec.url, iconSpan, spec.color || defaultColor);
+  }
+}
+
+// ==========================================================================
 // Uptime Formatter Helper
 // ==========================================================================
 function formatUptime(seconds) {
@@ -1552,20 +1733,7 @@ function renderDashboard() {
         }
         
         if (isSimple) {
-          if (item.icon && (item.icon.startsWith("http://") || item.icon.startsWith("https://") || item.icon.startsWith("data:") || item.icon.startsWith("/"))) {
-            const img = document.createElement("img");
-            img.src = item.icon;
-            img.alt = item.name;
-            img.style.width = "1.2rem";
-            img.style.height = "1.2rem";
-            img.style.objectFit = "contain";
-            img.onerror = () => { img.style.display = "none"; card.insertAdjacentHTML("afterbegin", '<i class="fas fa-link"></i>'); };
-            card.appendChild(img);
-          } else {
-            const faIcon = document.createElement("i");
-            faIcon.className = item.icon || "fas fa-link";
-            card.appendChild(faIcon);
-          }
+          renderIconInto(item.icon, card, true, item.name, item.color || "var(--primary-color)");
           const textNode = document.createTextNode(item.name);
           card.appendChild(textNode);
         } else {
@@ -1573,17 +1741,7 @@ function renderDashboard() {
           const iconWrapper = document.createElement("div");
           iconWrapper.className = "card-icon-wrapper";
           
-          if (item.icon && (item.icon.startsWith("http://") || item.icon.startsWith("https://") || item.icon.startsWith("data:") || item.icon.startsWith("/"))) {
-            const img = document.createElement("img");
-            img.src = item.icon;
-            img.alt = item.name;
-            img.onerror = () => { img.style.display = "none"; iconWrapper.innerHTML = '<i class="fas fa-link"></i>'; };
-            iconWrapper.appendChild(img);
-          } else {
-            const faIcon = document.createElement("i");
-            faIcon.className = item.icon || "fas fa-link";
-            iconWrapper.appendChild(faIcon);
-          }
+          renderIconInto(item.icon, iconWrapper, false, item.name, item.color || "var(--primary-color)");
           card.appendChild(iconWrapper);
           
           // Card text

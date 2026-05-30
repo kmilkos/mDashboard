@@ -673,7 +673,9 @@ body.card-style-simple .bookmark-card:hover::before {
   transition: transform var(--transition-normal), background-color var(--transition-normal);
 }
 
-.card-icon-wrapper img {
+.card-icon-wrapper img,
+.card-icon-wrapper span,
+.card-icon-wrapper svg {
   width: 32px;
   height: 32px;
   object-fit: contain;
