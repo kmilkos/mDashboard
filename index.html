@@ -4,10 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>mDash - Personal Dashboard</title>
-  <!-- Google Fonts: Outfit -->
+  <!-- Google Fonts: Outfit, Inter, Montserrat, JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600;700&family=Montserrat:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- App Stylesheet -->
@@ -377,6 +377,65 @@
           </div>
         </div>
         
+        <div class="form-row">
+          <div class="form-group">
+            <label for="settings-accent-theme">Global Accent Color</label>
+            <select id="settings-accent-theme">
+              <option value="indigo">Indigo Royal</option>
+              <option value="emerald">Emerald Forest</option>
+              <option value="rose">Sunset Crimson</option>
+              <option value="amber">Cyberpunk Gold</option>
+              <option value="cyan">Oceanic Breeze</option>
+              <option value="violet">Amethyst Violet</option>
+            </select>
+            <div class="settings-helper-text">Changes primary accent for buttons, clocks, and meters.</div>
+          </div>
+          
+          <div class="form-group">
+            <label for="settings-glass-style">Glassmorphism Level</label>
+            <select id="settings-glass-style">
+              <option value="solid">Minimal (Solid Surfaces)</option>
+              <option value="balanced">Spun Glass (Balanced Blur)</option>
+              <option value="frost">Deep Frost (Heavy Blur)</option>
+            </select>
+            <div class="settings-helper-text">Controls transparency and background blur opacity.</div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="settings-bg-theme">Ambient Canvas Glow Theme</label>
+            <select id="settings-bg-theme">
+              <option value="aurora">Aurora (Indigo & Rose)</option>
+              <option value="nebula">Nebula (Violet & Pink)</option>
+              <option value="oceanic">Oceanic (Cyan & Blue)</option>
+              <option value="charcoal">Charcoal (Dark Slate)</option>
+            </select>
+            <div class="settings-helper-text">Color theme for the animated background blobs.</div>
+          </div>
+          
+          <div class="form-group">
+            <label for="settings-density">Dashboard Grid Density</label>
+            <select id="settings-density">
+              <option value="compact">Compact (Highly Packed)</option>
+              <option value="comfortable">Comfortable (Balanced)</option>
+              <option value="spacious">Spacious (Clean & Relaxed)</option>
+            </select>
+            <div class="settings-helper-text">Controls card padding, spacing and text scaling.</div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="settings-font">Dashboard Font Family</label>
+          <select id="settings-font">
+            <option value="outfit">Outfit (Geometric & Round)</option>
+            <option value="inter">Inter (Legible Sans)</option>
+            <option value="montserrat">Montserrat (Wide Sans)</option>
+            <option value="jetbrains">JetBrains Mono (Technical Developer)</option>
+          </select>
+          <div class="settings-helper-text">Changes the global typography style.</div>
+        </div>
+
         <div class="form-group">
           <label for="settings-bg-url">Custom Background Image URL</label>
           <input type="url" id="settings-bg-url" placeholder="e.g., https://example.com/wallpaper.jpg (Leave blank for default dynamic mesh gradient)">

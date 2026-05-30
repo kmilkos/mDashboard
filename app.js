@@ -159,7 +159,12 @@ const DEFAULT_CONFIG = {
     weatherUnit: "celsius",
     weatherLat: "",
     weatherLon: "",
-    cardStyle: "default"
+    cardStyle: "default",
+    accentTheme: "indigo",
+    glassStyle: "balanced",
+    bgTheme: "aurora",
+    density: "comfortable",
+    font: "outfit"
   }
 };
 
@@ -207,6 +212,15 @@ const SEARCH_ENGINES = {
     url: "https://en.wikipedia.org/wiki/Special:Search?search="
   }
 };
+
+// --- Dynamic Accent Glow Helper ---
+function hexToRgb(hex) {
+  if (!hex) return "99, 102, 241";
+  const shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
+  const fullHex = hex.replace(shorthandRegex, (m, r, g, b) => r + r + g + g + b + b);
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(fullHex);
+  return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : "99, 102, 241";
+}
 
 // ==========================================================================
 // Proxmox API Client & Data Cache
@@ -610,6 +624,13 @@ function setupTheme() {
     html.setAttribute("data-theme", theme);
   }
 
+  // Set dynamic visual customization attributes
+  html.setAttribute("data-accent-theme", state.settings.accentTheme || "indigo");
+  html.setAttribute("data-glass-style", state.settings.glassStyle || "balanced");
+  html.setAttribute("data-bg-theme", state.settings.bgTheme || "aurora");
+  html.setAttribute("data-density", state.settings.density || "comfortable");
+  html.setAttribute("data-font", state.settings.font || "outfit");
+
   // Handle custom background image
   const bgUrl = state.settings.bgUrl || "";
   if (bgUrl.trim() !== "") {
@@ -673,6 +694,22 @@ function setupTheme() {
   if (settingsCardStyle) {
     settingsCardStyle.value = cardStyle;
   }
+
+  // Sync the new visual customization fields in settings modal
+  const settingsAccentTheme = document.getElementById("settings-accent-theme");
+  if (settingsAccentTheme) settingsAccentTheme.value = state.settings.accentTheme || "indigo";
+  
+  const settingsGlassStyle = document.getElementById("settings-glass-style");
+  if (settingsGlassStyle) settingsGlassStyle.value = state.settings.glassStyle || "balanced";
+  
+  const settingsBgTheme = document.getElementById("settings-bg-theme");
+  if (settingsBgTheme) settingsBgTheme.value = state.settings.bgTheme || "aurora";
+  
+  const settingsDensity = document.getElementById("settings-density");
+  if (settingsDensity) settingsDensity.value = state.settings.density || "comfortable";
+  
+  const settingsFont = document.getElementById("settings-font");
+  if (settingsFont) settingsFont.value = state.settings.font || "outfit";
 
   // Sync Weather settings
   const weatherEnable = state.settings.weatherEnable !== false; // true by default
@@ -1539,6 +1576,7 @@ function renderDashboard() {
             card.className = isCompact ? "bookmark-card proxmox-card compact" : "bookmark-card proxmox-card";
             const accentColor = category.color || "var(--primary-color)";
             card.style.setProperty("--card-accent", accentColor);
+            card.style.setProperty("--card-accent-rgb", hexToRgb(category.color || "#6366f1"));
             
             if (isCompact) {
               // Left: Icon + VM Name + type badge
@@ -1690,6 +1728,7 @@ function renderDashboard() {
         card.target = "_blank";
         card.rel = "noopener noreferrer";
         card.style.setProperty("--card-accent", item.color || "var(--primary-color)");
+        card.style.setProperty("--card-accent-rgb", hexToRgb(item.color || "#6366f1"));
         
         if (state.editMode && !item.isDiscovered) {
           card.setAttribute("draggable", "true");
@@ -2388,6 +2427,59 @@ function setupEventListeners() {
       saveAppState();
       setupTheme();
       renderDashboard();
+    });
+  }
+
+  // Accent Theme dropdown change listener
+  const settingsAccentTheme = document.getElementById("settings-accent-theme");
+  if (settingsAccentTheme) {
+    settingsAccentTheme.addEventListener("change", (e) => {
+      state.settings.accentTheme = e.target.value;
+      saveAppState();
+      setupTheme();
+      renderDashboard();
+    });
+  }
+
+  // Glassmorphism Style dropdown change listener
+  const settingsGlassStyle = document.getElementById("settings-glass-style");
+  if (settingsGlassStyle) {
+    settingsGlassStyle.addEventListener("change", (e) => {
+      state.settings.glassStyle = e.target.value;
+      saveAppState();
+      setupTheme();
+      renderDashboard();
+    });
+  }
+
+  // Ambient Background Theme dropdown change listener
+  const settingsBgTheme = document.getElementById("settings-bg-theme");
+  if (settingsBgTheme) {
+    settingsBgTheme.addEventListener("change", (e) => {
+      state.settings.bgTheme = e.target.value;
+      saveAppState();
+      setupTheme();
+    });
+  }
+
+  // Layout Density dropdown change listener
+  const settingsDensity = document.getElementById("settings-density");
+  if (settingsDensity) {
+    settingsDensity.addEventListener("change", (e) => {
+      state.settings.density = e.target.value;
+      saveAppState();
+      setupTheme();
+      renderDashboard();
+    });
+  }
+
+  // Typography Font dropdown change listener
+  const settingsFont = document.getElementById("settings-font");
+  if (settingsFont) {
+    settingsFont.addEventListener("change", (e) => {
+      state.settings.font = e.target.value;
+      saveAppState();
+      setupTheme();
     });
   }
   
