@@ -1056,6 +1056,19 @@ function parseIconSpec(iconStr) {
       };
     }
   }
+
+  // homarr-labs/dashboard-icons (da-XX or da-XX.ext)
+  if (iconStr.startsWith("da-")) {
+    const match = iconStr.match(/^da-([a-zA-Z0-9-]+)(?:\.(svg|png|webp))?$/);
+    if (match) {
+      const name = match[1];
+      const ext = match[2] || "png";
+      return {
+        type: "image",
+        url: `https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/${ext}/${name}.${ext}`
+      };
+    }
+  }
   
   // FontAwesome class name
   if (iconStr.includes(" ") || iconStr.startsWith("fa-")) {
