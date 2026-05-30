@@ -158,7 +158,8 @@ const DEFAULT_CONFIG = {
     weatherLocation: "",
     weatherUnit: "celsius",
     weatherLat: "",
-    weatherLon: ""
+    weatherLon: "",
+    cardStyle: "default"
   }
 };
 
@@ -613,6 +614,10 @@ function setupTheme() {
     document.body.classList.remove("has-bg-image");
   }
 
+  // Handle card style (simple/borderless or default)
+  const cardStyle = state.settings.cardStyle || "default";
+  document.body.classList.toggle("card-style-simple", cardStyle === "simple");
+
   // Sync theme buttons in settings
   const themeBtns = document.querySelectorAll(".theme-btn");
   themeBtns.forEach(btn => {
@@ -657,6 +662,11 @@ function setupTheme() {
   document.getElementById("settings-cat-cols").value = state.settings.catCols || "auto";
   document.getElementById("settings-item-cols").value = state.settings.itemCols || "auto";
   document.getElementById("settings-bookmark-cols").value = state.settings.bookmarkCols || "auto";
+  
+  const settingsCardStyle = document.getElementById("settings-card-style");
+  if (settingsCardStyle) {
+    settingsCardStyle.value = cardStyle;
+  }
 
   // Sync Weather settings
   const weatherEnable = state.settings.weatherEnable !== false; // true by default
@@ -2192,6 +2202,17 @@ function setupEventListeners() {
     setupTheme();
     renderDashboard();
   });
+
+  // Service Card Style dropdown change listener
+  const settingsCardStyle = document.getElementById("settings-card-style");
+  if (settingsCardStyle) {
+    settingsCardStyle.addEventListener("change", (e) => {
+      state.settings.cardStyle = e.target.value;
+      saveAppState();
+      setupTheme();
+      renderDashboard();
+    });
+  }
   
   // Custom Background input blur/change
   document.getElementById("settings-bg-url").addEventListener("change", (e) => {

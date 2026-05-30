@@ -633,6 +633,31 @@ body.edit-mode-active .category-actions {
   width: 6px;
 }
 
+/* --- Simple Card Style (Borderless Option) --- */
+body.card-style-simple .bookmark-card {
+  border-color: transparent;
+  background: rgba(15, 23, 42, 0.25);
+  box-shadow: none;
+}
+
+html[data-theme="light"] body.card-style-simple .bookmark-card {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+body.card-style-simple .bookmark-card:hover {
+  border-color: transparent;
+  background: var(--surface-hover);
+  box-shadow: 0 8px 20px -8px var(--surface-glow);
+}
+
+body.card-style-simple .bookmark-card::before {
+  width: 3px;
+}
+
+body.card-style-simple .bookmark-card:hover::before {
+  width: 4px;
+}
+
 /* Card Icon Box */
 .card-icon-wrapper {
   display: flex;
