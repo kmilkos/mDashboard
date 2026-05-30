@@ -319,8 +319,14 @@ class ToastManager {
   }
 
   _removeToast(toast) {
-    toast.classList.add('toast-out');
+    if (toast.dismissed) return;
+    toast.dismissed = true;
+    toast.classList.add('hide');
+    const fallback = setTimeout(() => {
+      toast.remove();
+    }, 400);
     toast.addEventListener('animationend', () => {
+      clearTimeout(fallback);
       toast.remove();
     });
   }
